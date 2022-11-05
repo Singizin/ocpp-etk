@@ -1,7 +1,7 @@
 version: "3.3"
 services:
-   bot:
-     build: .
+   backend_ocpp:
+     build: ./backend
      volumes:
        - .:/app
      ports:
