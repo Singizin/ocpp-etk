@@ -3,7 +3,7 @@ services:
    backend_ocpp:
      build: ./backend
      volumes:
-       - .:/app
+       - ./backend:/app
      ports:
        - "9000:9000"
      command: python3 server.py
