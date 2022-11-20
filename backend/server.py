@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime
+import apiServer
 
 try:
     import websockets
@@ -67,6 +68,8 @@ async def main():
         9000,
         subprotocols=['ocpp1.6']
     )
+
+    apiServer.run_server()
 
     logging.info("Server Started listening to new connections...")
     await server.wait_closed()
