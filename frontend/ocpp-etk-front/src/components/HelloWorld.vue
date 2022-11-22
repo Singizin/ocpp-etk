@@ -28,7 +28,7 @@ export default {
     }
   },
   created() {
-    console.log(Object.entries(this.ocppMessages))
+    // console.log(Object.entries(this.ocppMessages))
   }
 }
 </script>

@@ -4,7 +4,7 @@
       :message-name="messageName"/>
     <MessageInputField
       :message-name="messageName+'Response'"
-      hide-button
+      is-response-form
     />
   </div>
 </template>

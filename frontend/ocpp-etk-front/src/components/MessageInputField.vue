@@ -19,7 +19,7 @@
     </div>
     <div
       class="button_wrapper"
-      v-if="!hideButton"
+      v-if="!isResponseForm"
     >
       <button @click="sendRequest">
         Отправить
@@ -30,6 +30,8 @@
 
 <script>
 
+import {toRaw} from "vue";
+
 export default {
   name: 'MessageInputField',
   props: {
@@ -37,12 +39,12 @@ export default {
       type: String,
       required: true
     },
-    hideButton: Boolean
+    isResponseForm: Boolean
   },
   data() {
     // eslint-disable-next-line no-undef
     const myJson = OCPP_MESSAGES[this.messageName]
-    console.log(this.messageName, myJson)
+    // console.log(this.messageName, myJson)
     return {
       myJson,
       properties: Object.keys(myJson.properties).reduce((acc, prop) => ({...acc, [prop]: null}), {})
@@ -61,19 +63,20 @@ export default {
     collectInputs() {
       // console.log('collectInputs: ', Object.entries(this.myJson.properties))
       const result = {}
-      for (const el in this.myJson.properties) {
-        const value = document.getElementById(el).value;
-        console.log()
-        console.log('Property: Value= {', el, ':', value, '}')
-        if (value !== '') {
-          result[el] = value
+      const raw_properties = toRaw(this.properties)
+
+      for (const key of Object.keys(raw_properties)) {
+        const value = raw_properties[key]
+        console.log('Property: Value= {', key, ':', value, '}')
+        if (value !== null) {
+          result[key] = value
         } else {
-          if (this.isRequired(el)) {
+          if (this.isRequired(key)) {
             return false
           }
         }
       }
-      console.log('collectInputs: ', result)
+      console.log('result of collectInputs: ', result)
       return result
     },
     async sendRequest() {
