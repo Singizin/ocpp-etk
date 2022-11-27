@@ -7,11 +7,16 @@
     >
       <div :class="isRequired(key)" class="message_property">
         <div class="message_property_name">{{ key }}</div>
-        <input :type="el.type"
-               :maxlength="el.maxlength"
-               :required="isRequired(key)"
-               v-model="properties[key]"
+        <input
+          v-if="!isResponseForm"
+          :type="el.type"
+          :maxlength="el.maxlength"
+          :required="isRequired(key)"
+          v-model="properties[key]"
         >
+        <p
+          v-if="isResponseForm"
+        >{{ properties[key] }}</p>
       </div>
     </div>
     <div class="preview_properties">
@@ -21,7 +26,9 @@
       class="button_wrapper"
       v-if="!isResponseForm"
     >
-      <button @click="sendRequest">
+      <button
+        @click="$emit('send-request',collectInputs())"
+      >
         Отправить
       </button>
     </div>
@@ -39,7 +46,8 @@ export default {
       type: String,
       required: true
     },
-    isResponseForm: Boolean
+    isResponseForm: Boolean,
+    resJson: {}
   },
   data() {
     // eslint-disable-next-line no-undef
@@ -47,7 +55,7 @@ export default {
     // console.log(this.messageName, myJson)
     return {
       myJson,
-      properties: Object.keys(myJson.properties).reduce((acc, prop) => ({...acc, [prop]: null}), {})
+      properties: Object.keys(myJson.properties).reduce((acc, prop) => ({...acc, [prop]: null}), {}),
     }
   },
   methods: {
@@ -79,32 +87,48 @@ export default {
       console.log('result of collectInputs: ', result)
       return result
     },
-    async sendRequest() {
-      const reqJSON = this.collectInputs()
-      if (reqJSON !== false) {
-        const response = await fetch("/api",
-          {
-            method: 'POST',
-            // mode: 'no-cors',
-            headers: {
-              // "Access-Control-Allow-Origin": "http://127.0.0.1:4567",
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(reqJSON)
-          });
-        const data = await response.json();
-        console.log('response: ', data)
-      } else {
-        alert('Поля не должны быть пустыми: ' + this.myJson.required.toString())
-      }
-    },
-    reduceCustom(arr) {
-      let result = {}
-      for (const el of arr) {
-        result = {...result, [el]: null}
-      }
-    },
+    // async sendRequest() {
+    //   const reqJSON = this.collectInputs()
+    //   if (reqJSON !== false) {
+    //     const response = await fetch("/api",
+    //       {
+    //         method: 'POST',
+    //         // mode: 'no-cors',
+    //         headers: {
+    //           // "Access-Control-Allow-Origin": "http://127.0.0.1:4567",
+    //           'Content-Type': 'application/json'
+    //         },
+    //         body: JSON.stringify(reqJSON)
+    //       });
+    //     const data = await response.json();
+    //     console.log('response: ', data)
+    //   } else {
+    //     alert('Поля не должны быть пустыми: ' + this.myJson.required.toString())
+    //   }
+    // },
+    // reduceCustom(arr) {
+    //   let result = {}
+    //   for (const el of arr) {
+    //     result = {...result, [el]: null}
+    //   }
+    // },
   },
+  watch: {
+    resJson: function () {
+      console.log('updated resJSON', this.resJson)
+      if (this.isResponseForm) {
+        for (const key of Object.keys(this.resJson)) {
+          console.log(key, Object.keys(this.properties).includes(key))
+          if (Object.keys(this.properties).includes(key)) {
+            this.properties[key] = this.resJson[key]
+          }
+        }
+      }
+    },
+    properties: function () {
+      this.checkRequiredFields()
+    }
+  }
 }
 </script>
 
@@ -143,6 +167,25 @@ export default {
   margin: 2px 0;
 }
 
+.message_property > p {
+  font-size: 12px;
+  margin: 2px 0;
+  padding: 2px 2px;
+  border-radius: 2px;
+  background: white;
+  min-width: 150px;
+}
+
+.message_property > input {
+  border-radius: 2px;
+  background: white;
+  border: 2px #87b4da solid;
+}
+
+.message_property > .required_input {
+  background: #456282;
+}
+
 .button_wrapper {
   display: flex;
   justify-content: flex-end;
@@ -178,4 +221,6 @@ button:active {
   text-align: left;
   font-size: 12px;
 }
+
+
 </style>
