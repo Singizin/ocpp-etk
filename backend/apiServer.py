@@ -7,7 +7,7 @@ app = Flask(__name__)
 def hello_world():
     input_json = request.get_json(force=True)
     print(request.headers, input_json)
-    return jsonify({'Hello World': 123})
+    return jsonify({'idTagInfo': 123})
 
 
 @app.route('/api', methods=['GET'])

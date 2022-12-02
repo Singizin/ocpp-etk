@@ -3,6 +3,8 @@ import logging
 from datetime import datetime
 import apiServer
 
+import CMS_state
+
 try:
     import websockets
 except ModuleNotFoundError:
@@ -11,6 +13,7 @@ except ModuleNotFoundError:
     print()
     print(" $ pip install websockets")
     import sys
+
     sys.exit(1)
 
 from ocpp.routing import on
@@ -27,9 +30,42 @@ class ChargePoint(cp):
         return call_result.BootNotificationPayload(
             current_time=datetime.utcnow().isoformat(),
             interval=10,
-            status=RegistrationStatus.rejected
+            status=RegistrationStatus.accepted
         )
 
+    @on(Action.Heartbeat)
+    def on_heartbeat(self):
+        return call_result.HeartbeatPayload(
+            current_time=datetime.utcnow().isoformat()
+        )
+
+    @on(Action.Authorize)
+    def on_authorize(self, id_tag: str):
+        return call_result.AuthorizePayload(
+            id_tag_info=CMS_state.cmsIdTagInfo(idTag=id_tag)
+        )
+
+    @on(Action.StartTransaction)
+    def on_start_transaction(self, connector_id: int, id_tag: str, meter_start: int, reservation_id: int,
+                             timestamp: datetime):
+        return call_result.StartTransactionPayload(
+            id_tag_info=CMS_state.cmsIdTagInfo(idTag=id_tag),
+            transaction_id=12345,
+        )
+
+    @on(Action.MeterValues)
+    def on_meter_values(self, connector_id: int, transaction_id: int, meter_value: object):
+        return call_result.MeterValuesPayload()
+
+    @on(Action.StopTransaction)
+    def on_stop_transaction(self, id_tag: str, meter_stop: int, timestamp: datetime,
+                            transaction_id: int, reason: str, transaction_data: object,):
+        return call_result.StopTransactionPayload(id_tag_info=CMS_state.cmsIdTagInfo(id_tag))
+
+    @on(Action.StatusNotification)
+    def on_status_notification(self, connector_id: int, error_code: str,
+                               status: str, **kwargs):
+        return call_result.StatusNotificationPayload()
 
 async def on_connect(websocket, path):
     """ For every new charge point that connects, create a ChargePoint
@@ -56,6 +92,7 @@ async def on_connect(websocket, path):
         return await websocket.close()
 
     charge_point_id = path.strip('/')
+    print(charge_point_id)
     cp = ChargePoint(charge_point_id, websocket)
 
     await cp.start()
@@ -69,7 +106,7 @@ async def main():
         subprotocols=['ocpp1.6']
     )
 
-    apiServer.run_server()
+    # apiServer.run_server()
 
     logging.info("Server Started listening to new connections...")
     await server.wait_closed()
