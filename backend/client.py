@@ -22,7 +22,7 @@ logging.basicConfig(level=logging.INFO)
 class ChargePoint(cp):
     async def send_boot_notification(self):
         request = call.BootNotificationPayload(
-            charge_point_model="Optimus",
+            charge_point_model="Optimus1",
             charge_point_vendor="The Mobility House"
         )
 
@@ -33,12 +33,14 @@ class ChargePoint(cp):
 
 
 async def main():
+    url = 'ws://217.71.129.139:4933/steve/websocket/CentralSystemService/CP_1'
+    # url = 'ws://localhost:9000/CP_1293'
     async with websockets.connect(
-        'ws://localhost:9000/CP_123',
+        url,
         subprotocols=['ocpp1.6']
     ) as ws:
 
-        cp = ChargePoint('CP_123', ws)
+        cp = ChargePoint('CP_1293', ws)
 
         await asyncio.gather(cp.start(), cp.send_boot_notification())
 

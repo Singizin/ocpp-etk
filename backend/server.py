@@ -1,9 +1,12 @@
 import asyncio
 import logging
 from datetime import datetime
+from functools import wraps
+
 import apiServer
 
-import CMS_state
+import CMS
+from backend.db import cp_in_db, update_state
 
 try:
     import websockets
@@ -16,7 +19,7 @@ except ModuleNotFoundError:
 
     sys.exit(1)
 
-from ocpp.routing import on
+from ocpp.routing import on, after
 from ocpp.v16 import ChargePoint as cp
 from ocpp.v16.enums import Action, RegistrationStatus
 from ocpp.v16 import call_result
@@ -24,53 +27,80 @@ from ocpp.v16 import call_result
 logging.basicConfig(level=logging.INFO)
 
 
+def writedb(action, cp=None):
+    def wrapper(func):
+        @wraps(func)
+        def inner(*args, **kwargs):
+            print(args)
+            print(kwargs)
+            args[0].is_on_action = False if hasattr(args[0], 'is_on_action') else True
+            if args[0].is_on_action:
+                update_state(action, args, **kwargs)
+            print(f"is_on_action writing DB {args[0].is_on_action}")
+            print(args, kwargs)
+            return func(*args, **kwargs)
+
+        inner._after_action = action
+        return on(action)(inner)
+
+    return wrapper
+
+
 class ChargePoint(cp):
-    @on(Action.BootNotification)
+    @writedb(Action.BootNotification)
     def on_boot_notification(self, charge_point_vendor: str, charge_point_model: str, **kwargs):
+        """
+
+        :param charge_point_vendor:
+        :param charge_point_model:
+        :param kwargs:
+        :return:
+        """
         return call_result.BootNotificationPayload(
             current_time=datetime.utcnow().isoformat(),
             interval=10,
             status=RegistrationStatus.accepted
         )
 
-    @on(Action.Heartbeat)
+    @writedb(Action.Heartbeat)
     def on_heartbeat(self):
         return call_result.HeartbeatPayload(
             current_time=datetime.utcnow().isoformat()
         )
 
-    @on(Action.Authorize)
+    @writedb(Action.Authorize)
     def on_authorize(self, id_tag: str):
         return call_result.AuthorizePayload(
-            id_tag_info=CMS_state.cmsIdTagInfo(idTag=id_tag)
+            id_tag_info=CMS.cmsIdTagInfo(idTag=id_tag)
         )
 
-    @on(Action.StartTransaction)
-    def on_start_transaction(self, connector_id: int, id_tag: str, meter_start: int, reservation_id: int,
-                             timestamp: datetime):
+    @writedb(Action.StartTransaction)
+    def on_start_transaction(self, connector_id: int, id_tag: str, meter_start: int, timestamp: datetime, **kwargs):
         return call_result.StartTransactionPayload(
-            id_tag_info=CMS_state.cmsIdTagInfo(idTag=id_tag),
+            id_tag_info=CMS.cmsIdTagInfo(idTag=id_tag),
             transaction_id=12345,
         )
 
-    @on(Action.MeterValues)
-    def on_meter_values(self, connector_id: int, transaction_id: int, meter_value: object):
+    @writedb(Action.MeterValues)
+    def on_meter_values(self, connector_id: int, meter_value: object, **kwargs):
         return call_result.MeterValuesPayload()
 
-    @on(Action.StopTransaction)
-    def on_stop_transaction(self, id_tag: str, meter_stop: int, timestamp: datetime,
-                            transaction_id: int, reason: str, transaction_data: object,):
-        return call_result.StopTransactionPayload(id_tag_info=CMS_state.cmsIdTagInfo(id_tag))
+    @writedb(Action.StopTransaction)
+    def on_stop_transaction(self, meter_stop: int, timestamp: datetime,
+                            transaction_id: int, **kwargs):
+        return call_result.StopTransactionPayload(id_tag_info={'status': 'accepted'})
 
-    @on(Action.StatusNotification)
+    @writedb(Action.StatusNotification)
     def on_status_notification(self, connector_id: int, error_code: str,
                                status: str, **kwargs):
         return call_result.StatusNotificationPayload()
+
 
 async def on_connect(websocket, path):
     """ For every new charge point that connects, create a ChargePoint
     instance and start listening for messages.
     """
+    print("new connection", websocket, path)
     try:
         requested_protocols = websocket.request_headers[
             'Sec-WebSocket-Protocol']
@@ -92,7 +122,7 @@ async def on_connect(websocket, path):
         return await websocket.close()
 
     charge_point_id = path.strip('/')
-    print(charge_point_id)
+    cp_in_db(charge_point_id)
     cp = ChargePoint(charge_point_id, websocket)
 
     await cp.start()
