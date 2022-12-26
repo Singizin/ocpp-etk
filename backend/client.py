@@ -1,6 +1,8 @@
 import asyncio
 import logging
 
+from backend.client_controller import start_listening_server
+
 try:
     import websockets
 except ModuleNotFoundError:
@@ -20,6 +22,12 @@ logging.basicConfig(level=logging.INFO)
 
 
 class ChargePoint(cp):
+    async def send_heartbeat(self, interval):
+        request = call.HeartbeatPayload()
+        while True:
+            await self.call(request)
+            await asyncio.sleep(interval)
+
     async def send_boot_notification(self):
         request = call.BootNotificationPayload(
             charge_point_model="Optimus",
@@ -28,8 +36,9 @@ class ChargePoint(cp):
 
         response = await self.call(request)
 
-        if response.status == RegistrationStatus.accepted:
+        if response.status == "Accepted":
             print("Connected to central system.")
+            await self.send_heartbeat(response.interval)
 
 
 async def main():
@@ -40,7 +49,9 @@ async def main():
 
         cp = ChargePoint('CP_123', ws)
 
-        await asyncio.gather(cp.start(), cp.send_boot_notification())
+        await asyncio.gather(cp.start(),
+                             cp.send_boot_notification(),
+                             start_listening_server(cp))
 
 
 if __name__ == "__main__":

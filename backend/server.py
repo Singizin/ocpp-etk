@@ -29,14 +29,15 @@ class ChargePoint(cp):
     def on_boot_notification(self, charge_point_vendor: str, charge_point_model: str, **kwargs):
         return call_result.BootNotificationPayload(
             current_time=datetime.utcnow().isoformat(),
-            interval=10,
+            interval=2,
             status=RegistrationStatus.accepted
         )
 
-    @on(Action.Heartbeat)
+    @on("Heartbeat")
     def on_heartbeat(self):
+        print("Got a Heartbeat!")
         return call_result.HeartbeatPayload(
-            current_time=datetime.utcnow().isoformat()
+            current_time=datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S") + "Z"
         )
 
     @on(Action.Authorize)
