@@ -4,6 +4,7 @@ from datetime import datetime
 import apiServer
 
 import CMS_state
+from backend.server_controller import start_listening_server
 
 try:
     import websockets
@@ -18,8 +19,9 @@ except ModuleNotFoundError:
 
 from ocpp.routing import on
 from ocpp.v16 import ChargePoint as cp
-from ocpp.v16.enums import Action, RegistrationStatus
-from ocpp.v16 import call_result
+import ocpp.v16.enums as enums
+from ocpp.v16.enums import Action
+from ocpp.v16 import call_result, call
 
 logging.basicConfig(level=logging.INFO)
 
@@ -30,10 +32,10 @@ class ChargePoint(cp):
         return call_result.BootNotificationPayload(
             current_time=datetime.utcnow().isoformat(),
             interval=2,
-            status=RegistrationStatus.accepted
+            status=enums.RegistrationStatus.accepted
         )
 
-    @on("Heartbeat")
+    @on(Action.Heartbeat)
     def on_heartbeat(self):
         print("Got a Heartbeat!")
         return call_result.HeartbeatPayload(
@@ -60,13 +62,23 @@ class ChargePoint(cp):
 
     @on(Action.StopTransaction)
     def on_stop_transaction(self, id_tag: str, meter_stop: int, timestamp: datetime,
-                            transaction_id: int, reason: str, transaction_data: object,):
+                            transaction_id: int, reason: str, transaction_data: object, ):
         return call_result.StopTransactionPayload(id_tag_info=CMS_state.cmsIdTagInfo(id_tag))
 
     @on(Action.StatusNotification)
     def on_status_notification(self, connector_id: int, error_code: str,
                                status: str, **kwargs):
         return call_result.StatusNotificationPayload()
+
+    async def send_change_availability(self):
+        request = call.ChangeAvailabilityPayload(
+            connector_id=1,
+            type=enums.AvailabilityType.inoperative
+        )
+
+        return await self.call(request)
+
+
 
 async def on_connect(websocket, path):
     """ For every new charge point that connects, create a ChargePoint
@@ -96,7 +108,8 @@ async def on_connect(websocket, path):
     print(charge_point_id)
     cp = ChargePoint(charge_point_id, websocket)
 
-    await cp.start()
+    await asyncio.gather(cp.start(),
+                         start_listening_server(cp))
 
 
 async def main():
