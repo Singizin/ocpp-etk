@@ -85,8 +85,10 @@ class ChargePoint(cp):
         r = await self.call(request)
 
     @on(Action.ChangeAvailability)
-    async def on_change_availability(self, connector_id, type):
-        wait_task = asyncio.create_task(self.modbus.wait_for_change('charge_point_status'))
+    async def on_change_availability(self,
+                                     connector_id,
+                                     type):
+        wait_task = asyncio.create_task(self.modbus.wait_for_change('availability_status'))
         asyncio.create_task(self.modbus.set_availability_status())
         status = await wait_task
         return call_result.ChangeAvailabilityPayload(
@@ -101,6 +103,8 @@ async def main():
     ) as ws:
         modbus = Modbus()
         cp = ChargePoint('CP_123', ws, modbus=modbus)
+
+        modbus.register_hook('charge_point_status', lambda:  asyncio.create_task(cp.send_status_notification()))
 
         await asyncio.gather(
             cp.start(),
