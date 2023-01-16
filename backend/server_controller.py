@@ -7,9 +7,10 @@ if TYPE_CHECKING:
 
 async def start_listening_server(cp: 'ChargePoint'):
     print(cp._connection)
-    # while True:
-    if cp._connection:
-        cmd = input('server command: ')
-        if cmd == 'ca':
-            print('got', await cp.send_change_availability())
-        await asyncio.sleep(1)
+    while True:
+        await asyncio.sleep(0.1)
+        # if cp._connection:
+        #     cmd = input('server command: ')
+        #     if cmd == 'ca':
+        #         print('got', await cp.send_change_availability())
+        #     await asyncio.sleep(1)

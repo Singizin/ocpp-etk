@@ -27,11 +27,17 @@ logging.basicConfig(level=logging.INFO)
 
 
 class ChargePoint(cp):
+    @on(Action.Authorize)
+    def on_authorize(self, id_tag: str):
+        return call_result.AuthorizePayload(
+            id_tag_info=CMS_state.cmsIdTagInfo(idTag=id_tag)
+        )
+
     @on(Action.BootNotification)
     def on_boot_notification(self, charge_point_vendor: str, charge_point_model: str, **kwargs):
         return call_result.BootNotificationPayload(
             current_time=datetime.utcnow().isoformat(),
-            interval=2,
+            interval=5,
             status=enums.RegistrationStatus.accepted
         )
 
@@ -42,14 +48,12 @@ class ChargePoint(cp):
             current_time=datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S") + "Z"
         )
 
-    @on(Action.Authorize)
-    def on_authorize(self, id_tag: str):
-        return call_result.AuthorizePayload(
-            id_tag_info=CMS_state.cmsIdTagInfo(idTag=id_tag)
-        )
-
     @on(Action.StartTransaction)
-    def on_start_transaction(self, connector_id: int, id_tag: str, meter_start: int, reservation_id: int,
+    def on_start_transaction(self,
+                             connector_id: int,
+                             id_tag: str,
+                             meter_start: int,
+                             reservation_id: int,
                              timestamp: datetime):
         return call_result.StartTransactionPayload(
             id_tag_info=CMS_state.cmsIdTagInfo(idTag=id_tag),
@@ -57,13 +61,22 @@ class ChargePoint(cp):
         )
 
     @on(Action.MeterValues)
-    def on_meter_values(self, connector_id: int, transaction_id: int, meter_value: object):
+    def on_meter_values(self, meter_value,
+                        connector_id: int,
+                        transaction_id: int = 0):
+        print(f'MeterValues @on: {meter_value}')
         return call_result.MeterValuesPayload()
 
     @on(Action.StopTransaction)
-    def on_stop_transaction(self, id_tag: str, meter_stop: int, timestamp: datetime,
-                            transaction_id: int, reason: str, transaction_data: object, ):
-        return call_result.StopTransactionPayload(id_tag_info=CMS_state.cmsIdTagInfo(id_tag))
+    def on_stop_transaction(self, id_tag: str,
+                            meter_stop: int,
+                            timestamp: datetime,
+                            transaction_id: int,
+                            reason: str,
+                            transaction_data: object, ):
+        return call_result.StopTransactionPayload(
+            id_tag_info=CMS_state.cmsIdTagInfo(id_tag)
+        )
 
     @on(Action.StatusNotification)
     def on_status_notification(self, connector_id: int, error_code: str,
@@ -73,11 +86,9 @@ class ChargePoint(cp):
     async def send_change_availability(self):
         request = call.ChangeAvailabilityPayload(
             connector_id=1,
-            type=enums.AvailabilityType.inoperative
+            type=enums.AvailabilityType.operative
         )
-
         return await self.call(request)
-
 
 
 async def on_connect(websocket, path):
@@ -109,7 +120,8 @@ async def on_connect(websocket, path):
     cp = ChargePoint(charge_point_id, websocket)
 
     await asyncio.gather(cp.start(),
-                         start_listening_server(cp))
+                         # start_listening_server(cp),
+                         cp.send_change_availability())
 
 
 async def main():
