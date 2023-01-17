@@ -1,3 +1,5 @@
 /venv/
 /.idea/
 *.pyc
+backend/.idea/inspectionProfiles
+backend/.idea

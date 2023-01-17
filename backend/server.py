@@ -67,28 +67,35 @@ class ChargePoint(cp):
         print(f'MeterValues @on: {meter_value}')
         return call_result.MeterValuesPayload()
 
-    @on(Action.StopTransaction)
-    def on_stop_transaction(self, id_tag: str,
-                            meter_stop: int,
-                            timestamp: datetime,
-                            transaction_id: int,
-                            reason: str,
-                            transaction_data: object, ):
-        return call_result.StopTransactionPayload(
-            id_tag_info=CMS_state.cmsIdTagInfo(id_tag)
-        )
+    # @on(Action.StopTransaction)
+    # def on_stop_transaction(self, id_tag: str,
+    #                         meter_stop: int,
+    #                         timestamp: datetime,
+    #                         transaction_id: int,
+    #                         reason: str,
+    #                         transaction_data: object, ):
+    #     return call_result.StopTransactionPayload(
+    #         id_tag_info=CMS_state.cmsIdTagInfo(id_tag)
+    #     )
 
     @on(Action.StatusNotification)
     def on_status_notification(self, connector_id: int, error_code: str,
                                status: str, **kwargs):
         return call_result.StatusNotificationPayload()
 
+    # initial by Central System
     async def send_change_availability(self):
         request = call.ChangeAvailabilityPayload(
             connector_id=1,
             type=enums.AvailabilityType.operative
         )
         return await self.call(request)
+
+    async def send_reset(self):
+        request = call.ResetPayload(
+            type=enums.ResetType.soft
+        )
+        await self.call(request)
 
 
 async def on_connect(websocket, path):
@@ -121,7 +128,9 @@ async def on_connect(websocket, path):
 
     await asyncio.gather(cp.start(),
                          # start_listening_server(cp),
-                         cp.send_change_availability())
+                         cp.send_change_availability(),
+                         # cp.send_reset()
+                         )
 
 
 async def main():
